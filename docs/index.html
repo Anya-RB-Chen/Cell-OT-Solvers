@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cell-OT Solvers</title>
+<meta name="description" content="Viability-constrained unbalanced optimal transport and fast Sinkhorn solvers for single-cell drug perturbation atlases — interactive demo.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#fbfaf8; --surface:#ffffff; --surface-2:#f4f3f0; --line:#e4e3df;
+  --ink:#0b0b0b; --ink-2:#52514e; --muted:#8a8985;
+  --blue:#2a78d6; --orange:#eb6834; --aqua:#1baf7a; --yellow:#eda100; --magenta:#e87ba4;
+  --green:#008300; --violet:#6250d6; --red:#e34948; --accent:#e34948;
+  --shadow:0 1px 2px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.06);
+  --radius:14px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121211; --surface:#1a1a19; --surface-2:#232321; --line:#30302d;
+    --ink:#f0efec; --ink-2:#c3c2b7; --muted:#8f8e86;
+    --blue:#3987e5; --orange:#d95926; --aqua:#199e70; --yellow:#c98500; --magenta:#d55181;
+    --green:#2c9b2c; --violet:#9085e9; --red:#e66767; --accent:#e66767;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121211; --surface:#1a1a19; --surface-2:#232321; --line:#30302d;
+  --ink:#f0efec; --ink-2:#c3c2b7; --muted:#8f8e86;
+  --blue:#3987e5; --orange:#d95926; --aqua:#199e70; --yellow:#c98500; --magenta:#d55181;
+  --green:#2c9b2c; --violet:#9085e9; --red:#e66767; --accent:#e66767;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 Inter,system-ui,-apple-system,Segoe UI,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--blue);text-decoration:none} a:hover{text-decoration:underline}
+code,.mono{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.9em}
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+nav{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--bg) 86%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;align-items:center;gap:22px;height:56px}
+nav .brand{font-weight:800;letter-spacing:-.02em;color:var(--ink);display:flex;align-items:center;gap:8px}
+nav .brand i{width:10px;height:10px;border-radius:50%;background:var(--accent);display:inline-block;box-shadow:14px 0 0 var(--blue)}
+nav .brand span{margin-left:12px}
+nav .links{display:flex;gap:18px;margin-left:auto;font-size:14px}
+nav .links a{color:var(--ink-2)}
+#theme{border:1px solid var(--line);background:var(--surface);color:var(--ink-2);border-radius:999px;padding:4px 10px;cursor:pointer;font:inherit;font-size:13px}
+header.hero{padding:64px 0 30px}
+.eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600}
+h1{font-size:clamp(30px,5vw,54px);line-height:1.05;letter-spacing:-.035em;margin:10px 0 18px;font-weight:800;max-width:920px}
+h1 em{font-style:normal;background:linear-gradient(90deg,var(--accent),var(--orange));-webkit-background-clip:text;background-clip:text;color:transparent}
+.lede{font-size:18px;color:var(--ink-2);max-width:780px}
+.cta{display:flex;gap:10px;flex-wrap:wrap;margin:22px 0 0}
+.btn{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:9px 16px;font-weight:600;font-size:14px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn:hover{text-decoration:none;transform:translateY(-1px)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:38px 0 10px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow)}
+.stat b{display:block;font-size:28px;letter-spacing:-.03em;font-weight:800}
+.stat span{color:var(--ink-2);font-size:13px}
+section{padding:46px 0;border-top:1px solid var(--line)}
+h2{font-size:28px;letter-spacing:-.025em;margin:0 0 6px}
+.sub{color:var(--ink-2);margin:0 0 22px;max-width:820px}
+.grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:18px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px}
+.card h3{margin:0 0 10px;font-size:15px}
+canvas{display:block;width:100%;border-radius:10px;background:var(--surface-2);touch-action:none}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;margin-top:12px}
+.ctl label{display:flex;justify-content:space-between;font-size:12.5px;color:var(--ink-2);font-weight:500}
+.ctl label output{font-family:"JetBrains Mono",monospace;color:var(--ink)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+select{width:100%;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-size:13px}
+.seg{display:flex;border:1px solid var(--line);border-radius:999px;padding:3px;gap:2px;background:var(--surface-2);flex-wrap:wrap}
+.seg button{flex:1;border:0;background:transparent;color:var(--ink-2);padding:5px 10px;border-radius:999px;font:inherit;font-size:12.5px;cursor:pointer;white-space:nowrap}
+.seg button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12);font-weight:600}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
+.kv{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.kv div{background:var(--surface-2);border-radius:10px;padding:8px 10px}
+.kv b{display:block;font-family:"JetBrains Mono",monospace;font-size:16px}
+.kv span{font-size:11.5px;color:var(--ink-2)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-2);margin-top:8px}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:6px}
+.legend i.dot{width:9px;height:9px;border-radius:50%}
+.note{font-size:12.5px;color:var(--muted);margin-top:8px}
+.tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--bg);font-size:12px;padding:6px 8px;border-radius:6px;opacity:0;transition:opacity .1s;z-index:20;font-family:"JetBrains Mono",monospace}
+.theory{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.theory .card p{color:var(--ink-2);font-size:14px;margin:6px 0}
+.math{font-family:"JetBrains Mono",monospace;font-size:13px;background:var(--surface-2);border-radius:8px;padding:8px 10px;margin:8px 0;overflow-x:auto;white-space:nowrap}
+.figs{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.figs figure{margin:0}
+.figs img{width:100%;border-radius:10px;background:#fff;border:1px solid var(--line)}
+.figs figcaption{font-size:13px;color:var(--ink-2);margin-top:6px}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left}
+th{color:var(--ink-2);font-weight:600;font-size:12.5px}
+td.num{font-family:"JetBrains Mono",monospace;text-align:right}
+footer{padding:36px 0 60px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+pre{background:var(--surface-2);border-radius:10px;padding:12px;overflow-x:auto;font-size:12.5px}
+@media (max-width:900px){
+  .grid,.theory,.figs{grid-template-columns:1fr}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  nav .links{display:none}
+}
+@media (max-width:520px){ .controls{grid-template-columns:1fr} .kv{grid-template-columns:repeat(2,1fr)} }
+</style>
+</head>
+<body>
+<nav><div class="wrap">
+  <a class="brand" href="#"><i></i><span>Cell-OT Solvers</span></a>
+  <div class="links"><a href="#playground">Playground</a><a href="#race">Solver race</a><a href="#atlas">Cell explorer</a><a href="#theory">Theory</a><a href="#results">Results</a></div>
+  <button id="theme" aria-label="Toggle colour theme">◐ theme</button>
+</div></nav>
+
+<header class="hero"><div class="wrap">
+  <div class="eyebrow">COMP6704 Advanced Optimization · Individual Assignment · PolyU 2026</div>
+  <h1>Who dies under a drug? <em>Mass-aware optimal transport</em> for single-cell perturbation atlases.</h1>
+  <p class="lede">Treated and control cells are unpaired point clouds, and drugs kill cells. We transport control cells onto treated cells with the transported mass fixed to the <b>measured viability</b>. The proposed <b>AA-TI-Sinkhorn</b> solver needs a number of sweeps that stays flat in the marginal penalty τ, while plain Sinkhorn needs tens of thousands.</p>
+  <div class="cta">
+    <a class="btn primary" href="#playground">▶ Try it in your browser</a>
+    <a class="btn" href="https://github.com/Anya-RB-Chen/Cell-OT-Solvers">Code on GitHub</a>
+    <a class="btn" href="#results">Key results</a>
+  </div>
+  <div class="stats" id="stats">
+    <div class="stat"><b>14</b><span>solvers · 4 algorithm families</span></div>
+    <div class="stat"><b id="st-problems">56,877</b><span>Tahoe-100M OT problems solved</span></div>
+    <div class="stat"><b id="st-speed">≈10³×</b><span>fewer sweeps than UOT Sinkhorn at large τ</span></div>
+    <div class="stat"><b>ρ exactly</b><span>transported mass = measured viability</span></div>
+  </div>
+</div></header>
+
+<section id="playground"><div class="wrap">
+  <h2>Interactive playground</h2>
+  <p class="sub">Every iteration runs live in your browser. Drag the clouds, kill part of the population, and watch how the transport plan and the survival scores respond. Line opacity is proportional to <span class="mono">P<sub>ij</sub></span>, and source points are coloured by survival <span class="mono">s<sub>i</sub> = (P1)<sub>i</sub>/a<sub>i</sub></span> (red = dies, blue = divides).</p>
+  <div class="grid">
+    <div class="card">
+      <canvas id="pg" height="460" aria-label="Transport plan between two point clouds"></canvas>
+      <div class="legend"><span><i class="dot" style="background:var(--ink-2)"></i>control cells (source)</span><span><i class="dot" style="background:var(--orange)"></i>treated cells (target)</span><span><i style="background:var(--blue)"></i>coupling P<sub>ij</sub></span><span class="note">Drag a cloud to move it.</span></div>
+    </div>
+    <div class="card">
+      <h3>Problem</h3>
+      <div class="seg" id="mode"><button data-v="balanced" class="on">Balanced</button><button data-v="vc">VC-UOT (ours)</button><button data-v="sym">Symmetric UOT</button></div>
+      <div class="controls">
+        <div class="ctl"><label>entropy ε <output id="o-eps"></output></label><input id="eps" type="range" min="-2.5" max="0" step="0.05" value="-1.3"></div>
+        <div class="ctl"><label>marginal penalty τ <output id="o-tau"></output></label><input id="tau" type="range" min="-1.5" max="2" step="0.05" value="0"></div>
+        <div class="ctl"><label>viability ρ (target mass) <output id="o-rho"></output></label><input id="rho" type="range" min="0.2" max="1.6" step="0.05" value="0.6"></div>
+        <div class="ctl"><label>scenario</label><select id="scenario"><option value="kill">drug kills one sub-population</option><option value="shift">uniform shift</option><option value="split">bifurcation</option><option value="ring">ring → blob</option></select></div>
+      </div>
+      <h3 style="margin-top:16px">Solver</h3>
+      <div class="seg" id="solver"><button data-v="sinkhorn">Sinkhorn</button><button data-v="ti">TI-Sinkhorn</button><button data-v="aati" class="on">AA-TI (ours)</button></div>
+      <div class="row"><button class="btn primary" id="run">▶ Run</button><button class="btn" id="step">Step</button><button class="btn" id="reset">Reset</button></div>
+      <div class="kv"><div><b id="k-it">0</b><span>sweeps</span></div><div><b id="k-err">–</b><span>residual</span></div><div><b id="k-mass">–</b><span>transported mass</span></div></div>
+      <canvas id="pgconv" height="150" style="margin-top:12px" aria-label="Convergence curve"></canvas>
+      <p class="note">With symmetric UOT the mass settles near √ρ, not ρ (Prop. 1). Large τ with plain Sinkhorn is slow; AA-TI is not (Prop. 2).</p>
+    </div>
+  </div>
+</div></section>
+
+<section id="race"><div class="wrap">
+  <h2>Solver race</h2>
+  <p class="sub">The same VC-UOT instance is handed to the three unbalanced solvers, which run side by side. Push τ/ε up and the plain scaling algorithm stalls, because its dual translation mode contracts by only λ = τ/(τ+ε) per sweep. Translation invariance removes that mode, and Anderson extrapolation accelerates the rest.</p>
+  <div class="grid">
+    <div class="card"><canvas id="race-c" height="320" aria-label="Residual versus sweeps for three solvers"></canvas>
+      <div class="legend"><span><i style="background:var(--blue)"></i>UOT Sinkhorn</span><span><i style="background:var(--aqua)"></i>TI-Sinkhorn</span><span><i style="background:var(--red)"></i>AA-TI (ours)</span></div></div>
+    <div class="card">
+      <div class="controls">
+        <div class="ctl"><label>τ / ε <output id="o-ratio"></output></label><input id="ratio" type="range" min="0" max="3.3" step="0.05" value="2"></div>
+        <div class="ctl"><label>tolerance</label><select id="tol"><option value="1e-6">1e-6</option><option value="1e-8" selected>1e-8</option><option value="1e-10">1e-10</option></select></div>
+      </div>
+      <div class="row"><button class="btn primary" id="race-run">▶ Race</button></div>
+      <table style="margin-top:12px"><thead><tr><th>solver</th><th style="text-align:right">sweeps</th><th style="text-align:right">predicted (Prop. 2)</th></tr></thead>
+        <tbody id="race-tb"><tr><td>UOT Sinkhorn</td><td class="num">–</td><td class="num">–</td></tr><tr><td>TI-Sinkhorn</td><td class="num">–</td><td class="num">—</td></tr><tr><td>AA-TI (ours)</td><td class="num">–</td><td class="num">—</td></tr></tbody></table>
+      <p class="note">The prediction is log(e₀/δ)/log(1/λ) for VC-UOT (λ_b = 1). Plain Sinkhorn is capped at 20,000 sweeps in the browser.</p>
+    </div>
+  </div>
+</div></section>
+
+<section id="atlas"><div class="wrap">
+  <h2>Real cells: Tahoe-100M, A549 lung cancer line</h2>
+  <p class="sub">600 DMSO control cells and 200 cells per drug at 5 µM, shown on a shared UMAP of the PCA-50 expression space. VC-UOT (ε = 0.05, τ = 1) was solved offline. Each control cell is coloured by its survival score, and arrows point to its strongest coupling.</p>
+  <div class="grid">
+    <div class="card"><canvas id="umap" height="470" aria-label="UMAP of control and treated cells"></canvas>
+      <div class="legend"><span><i class="dot" style="background:var(--red)"></i>control, low survival</span><span><i class="dot" style="background:var(--blue)"></i>control, high survival</span><span><i class="dot" style="background:var(--orange)"></i>treated cells</span></div></div>
+    <div class="card">
+      <h3>Drug</h3>
+      <select id="drug"></select>
+      <div class="row"><div class="seg" id="layer"><button data-v="surv" class="on">survival</button><button data-v="phase">cell cycle</button></div>
+        <label style="font-size:13px;color:var(--ink-2)"><input type="checkbox" id="arrows" checked> arrows</label></div>
+      <div class="kv"><div><b id="a-rho">–</b><span>viability ρ</span></div><div><b id="a-cost">–</b><span>OT effect ⟨C,P⟩/ρ</span></div><div><b id="a-it">–</b><span>AA-TI sweeps</span></div></div>
+      <h3 style="margin-top:14px">Mean survival by cell-cycle phase</h3>
+      <canvas id="phasebar" height="120" aria-label="Mean survival by phase"></canvas>
+      <p class="note">Survival has a closed form in the dual: s<sub>i</sub> = exp(−f<sub>i</sub>/τ). Control cells far from every treated cell get a high transport price f<sub>i</sub>, so the model attributes their loss to the drug.</p>
+    </div>
+  </div>
+</div></section>
+
+<section id="theory"><div class="wrap">
+  <h2>Three results in one screen</h2>
+  <p class="sub">The optimisation results that support the demo.</p>
+  <div class="theory">
+    <div class="card"><h3>Prop. 1: mass</h3>
+      <p>Symmetric KL-UOT with C ≡ 0 transports</p><div class="math">mass = ρ^((τ+ε)/(2τ+ε)) → √ρ</div>
+      <p>VC-UOT (τ_b = ∞) transports exactly <b>ρ</b>, and the survival scores are <span class="mono">s_i = e^{-f_i/τ}</span> with mean ρ.</p></div>
+    <div class="card"><h3>Prop. 2: the slow mode</h3>
+      <p>If Sinkhorn starts at <span class="mono">f* + t·1</span>, then after k sweeps</p><div class="math">f^k = f* + (λ_a λ_b)^k · t · 1,  λ = τ/(τ+ε)</div>
+      <p>So the iteration count grows like τ/ε, and VC-UOT needs about twice as many sweeps as symmetric UOT. Both effects match the measurements.</p></div>
+    <div class="card"><h3>AA-TI-Sinkhorn</h3>
+      <p>An exact translation step <span class="mono">t* = (log A − log B)/(1/τ_a + 1/τ_b)</span> removes the slow mode. Type-II Anderson extrapolation (memory 5) accelerates the rest, and a residual safeguard keeps every step at least as good as a TI step.</p>
+      <div class="math">sweeps: O(τ/ε) → O(1) in τ</div></div>
+  </div>
+</div></section>
+
+<section id="results"><div class="wrap">
+  <h2>Key results from the report</h2>
+  <p class="sub">Real sci-Plex3 and Tahoe-100M instances, 14 solvers. Full details are in the PDF and in <code>experiments/</code>.</p>
+  <div class="figs" id="figs">
+    <figure><img src="assets/fig_convergence.png" alt="Convergence curves" loading="lazy"><figcaption>Convergence of the entropic solvers for three values of ε, and the entropic bias as ε → 0.</figcaption></figure>
+    <figure><img src="assets/fig_uot.png" alt="Unbalanced OT results" loading="lazy"><figcaption>Unbalanced OT: sweeps vs τ, the Prop. 2 prediction against measured counts, and transported mass against viability.</figcaption></figure>
+    <figure><img src="assets/fig_stability.png" alt="Stability and performance profile" loading="lazy"><figcaption>Convergence conditions, linear rate vs. the Franklin–Lorenz bound, the performance profile, and robustness over seeds.</figcaption></figure>
+    <figure><img src="assets/fig_warm_atlas.png" alt="Warm start and atlas" loading="lazy"><figcaption>Shared-source warm starts, a negative result explained by theory, and the atlas-scale run over all of Tahoe-100M.</figcaption></figure>
+  </div>
+  <h3 style="margin-top:26px">Reproduce</h3>
+<pre>git clone https://github.com/Anya-RB-Chen/Cell-OT-Solvers && cd Cell-OT-Solvers
+pip install -r requirements.txt
+python data/build_embeddings.py --dataset sciplex3 && python data/build_embeddings.py --dataset tahoe
+bash experiments/run_all.sh && python experiments/make_figures.py</pre>
+</div></section>
+
+<footer><div class="wrap">Rubing CHEN (25110871R) · COMP6704 Advanced Topics in Optimization, The Hong Kong Polytechnic University, Fall 2026 · Source on <a href="https://github.com/Anya-RB-Chen/Cell-OT-Solvers">GitHub</a>.</div></footer>
+<div class="tip" id="tip"></div>
+
+<script>
+"use strict";
+// ───────────────────────── theme ─────────────────────────
+(function(){
+  const root=document.documentElement;
+  try{const t=localStorage.getItem("cellot-theme"); if(t) root.dataset.theme=t;}catch(e){}
+  document.getElementById("theme").onclick=()=>{
+    const dark = root.dataset.theme ? root.dataset.theme==="dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    root.dataset.theme = dark ? "light" : "dark";
+    try{localStorage.setItem("cellot-theme",root.dataset.theme);}catch(e){}
+    redrawAll();
+  };
+})();
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function hexA(hex,a){const h=hex.replace("#","");const n=parseInt(h.length===3?h.split("").map(c=>c+c).join(""):h,16);return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`;}
+function setupCanvas(c){const dpr=Math.min(2,window.devicePixelRatio||1);const w=c.clientWidth,h=parseInt(c.getAttribute("height"));c.width=w*dpr;c.height=h*dpr;c.style.height=h+"px";const ctx=c.getContext("2d");ctx.setTransform(dpr,0,0,dpr,0,0);return {ctx,w,h};}
+function rng(seed){let s=seed>>>0;return()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296;};}
+function gauss(r){let u=0,v=0;while(u===0)u=r();while(v===0)v=r();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+
+// ───────────────────────── OT core (log domain) ─────────────────────────
+// a: n, b: m (b sums to rho), C: n*m row-major. tau = [ta, tb] (Infinity allowed). Balanced: ta=tb=Infinity.
+function lse(arr){let mx=-Infinity;for(const v of arr) if(v>mx) mx=v; if(mx===-Infinity) return -Infinity; let s=0; for(const v of arr) s+=Math.exp(v-mx); return mx+Math.log(s);}
+function makeOT(C,n,m,a,b,eps,ta,tb){
+  const la=a.map(Math.log), lb=b.map(Math.log);
+  const lamA=isFinite(ta)?ta/(ta+eps):1, lamB=isFinite(tb)?tb/(tb+eps):1;
+  const balanced=!isFinite(ta)&&!isFinite(tb);
+  const tmpN=new Float64Array(n), tmpM=new Float64Array(m);
+  function col(f){const g=new Float64Array(m);for(let j=0;j<m;j++){let mx=-Infinity;for(let i=0;i<n;i++){const v=(f[i]-C[i*m+j])/eps+la[i];tmpN[i]=v;if(v>mx)mx=v;}let s=0;for(let i=0;i<n;i++)s+=Math.exp(tmpN[i]-mx);g[j]=-lamB*eps*(mx+Math.log(s));}return g;}
+  function row(g){const f=new Float64Array(n);for(let i=0;i<n;i++){let mx=-Infinity;for(let j=0;j<m;j++){const v=(g[j]-C[i*m+j])/eps+lb[j];tmpM[j]=v;if(v>mx)mx=v;}let s=0;for(let j=0;j<m;j++)s+=Math.exp(tmpM[j]-mx);f[i]=-lamA*eps*(mx+Math.log(s));}return f;}
+  function shift(f,g){
+    const A=isFinite(ta)?lse(Array.from(f,(v,i)=>la[i]-v/ta)):lse(la);
+    const B=isFinite(tb)?lse(Array.from(g,(v,j)=>lb[j]-v/tb)):lse(lb);
+    const t=(A-B)/((isFinite(ta)?1/ta:0)+(isFinite(tb)?1/tb:0));
+    for(let i=0;i<n;i++)f[i]+=t; for(let j=0;j<m;j++)g[j]-=t;
+  }
+  function T(f,translate){
+    let g=col(f); f=Float64Array.from(f);
+    if(translate&&!balanced) shift(f,g);
+    let fn=row(g), gn=col(fn);
+    if(translate&&!balanced) shift(fn,gn);
+    return [fn,gn];
+  }
+  function plan(f,g){const P=new Float64Array(n*m);for(let i=0;i<n;i++)for(let j=0;j<m;j++)P[i*m+j]=Math.exp((f[i]+g[j]-C[i*m+j])/eps+la[i]+lb[j]);return P;}
+  function residual(f,fn){if(balanced){let e=0;for(let i=0;i<n;i++)e+=Math.abs(a[i]*Math.expm1((f[i]-fn[i])/eps));return e;}let e=0;for(let i=0;i<n;i++)e=Math.max(e,Math.abs(fn[i]-f[i]));return e;}
+  return {T,plan,residual,balanced};
+}
+// iterator over sweeps: kind in sinkhorn | ti | aati
+function solverIter(ot,n,kind){
+  let f=new Float64Array(n), g=null, k=0, Fs=[], Rs=[], prevErr=Infinity, prevT=null, M=5;
+  const translate = kind!=="sinkhorn";
+  return {
+    step(){
+      k++; const [Tf,gg]=ot.T(f,translate); const err=ot.residual(f,Tf); g=gg;
+      if(kind!=="aati"){f=Tf; return {k,err,f,g};}
+      if(err>prevErr&&prevT){Fs=[];Rs=[];f=prevT;prevErr=Infinity;return {k,err,f,g};}
+      prevErr=err; prevT=Tf; const r=Tf.map((v,i)=>v-f[i]); Fs.push(Tf); Rs.push(r);
+      if(Rs.length>M+1){Fs.shift();Rs.shift();}
+      if(Rs.length===1){f=Tf;return {k,err,f,g};}
+      const p=Rs.length-1, dR=[], dF=[];
+      for(let q=0;q<p;q++){dR.push(Rs[q+1].map((v,i)=>v-Rs[q][i])); dF.push(Fs[q+1].map((v,i)=>v-Fs[q][i]));}
+      const A=[],rhs=[]; let tr=0;
+      for(let x=0;x<p;x++){A.push([]);for(let y=0;y<p;y++){let s=0;for(let i=0;i<n;i++)s+=dR[x][i]*dR[y][i];A[x].push(s);} tr+=A[x][x]; let s=0;for(let i=0;i<n;i++)s+=dR[x][i]*r[i];rhs.push(s);}
+      for(let x=0;x<p;x++)A[x][x]+=1e-10*tr+1e-300;
+      const gam=solve(A,rhs); const fn=Float64Array.from(Tf);
+      for(let q=0;q<p;q++)for(let i=0;i<n;i++)fn[i]-=gam[q]*dF[q][i];
+      f=fn; return {k,err,f,g};
+    },
+    get f(){return f}, get g(){return g}
+  };
+}
+function solve(A,b){const n=b.length;const M=A.map((r,i)=>[...r,b[i]]);for(let c=0;c<n;c++){let p=c;for(let r=c+1;r<n;r++)if(Math.abs(M[r][c])>Math.abs(M[p][c]))p=r;[M[c],M[p]]=[M[p],M[c]];const d=M[c][c]||1e-300;for(let r=c+1;r<n;r++){const f=M[r][c]/d;for(let k=c;k<=n;k++)M[r][k]-=f*M[c][k];}}const x=new Array(n).fill(0);for(let r=n-1;r>=0;r--){let s=M[r][n];for(let k=r+1;k<n;k++)s-=M[r][k]*x[k];x[r]=s/(M[r][r]||1e-300);}return x;}
+
+// ───────────────────────── playground ─────────────────────────
+const PG={src:[],trt:[],killMask:[],n:70,m:60,state:null,running:false,hist:[],drag:null,P:null,surv:null};
+function scenario(name){
+  const r=rng(7), src=[], trt=[];
+  for(let i=0;i<PG.n;i++){const c=i<PG.n*0.55?[-0.55,0.25]:[-0.45,-0.35]; src.push([c[0]+0.13*gauss(r),c[1]+0.13*gauss(r)]);}
+  for(let j=0;j<PG.m;j++){
+    let p;
+    if(name==="kill") p=[0.5+0.14*gauss(r),0.2+0.12*gauss(r)];
+    else if(name==="shift") p=[0.5+0.15*gauss(r),(j<PG.m*0.55?0.25:-0.35)+0.12*gauss(r)];
+    else if(name==="split") p=j%2?[0.55+0.1*gauss(r),0.5+0.08*gauss(r)]:[0.55+0.1*gauss(r),-0.5+0.08*gauss(r)];
+    else {const th=2*Math.PI*r(); p=[0.5+0.35*Math.cos(th)+0.03*gauss(r),0.35*Math.sin(th)+0.03*gauss(r)];}
+    trt.push(p);
+  }
+  if(name==="ring"){src.length=0;for(let i=0;i<PG.n;i++)src.push([-0.5+0.15*gauss(r),0.15*gauss(r)]);}
+  PG.src=src;PG.trt=trt;
+}
+function pgParams(){
+  const eps=Math.pow(10,+document.getElementById("eps").value), tau=Math.pow(10,+document.getElementById("tau").value), rho=+document.getElementById("rho").value;
+  document.getElementById("o-eps").textContent=eps.toFixed(3);document.getElementById("o-tau").textContent=tau<10?tau.toFixed(2):tau.toFixed(0);document.getElementById("o-rho").textContent=rho.toFixed(2);
+  const mode=document.querySelector("#mode .on").dataset.v, solver=document.querySelector("#solver .on").dataset.v;
+  return {eps,tau,rho,mode,solver};
+}
+function pgBuild(){
+  const {eps,tau,rho,mode,solver}=pgParams(); const n=PG.src.length,m=PG.trt.length;
+  const C=new Float64Array(n*m); for(let i=0;i<n;i++)for(let j=0;j<m;j++){const dx=PG.src[i][0]-PG.trt[j][0],dy=PG.src[i][1]-PG.trt[j][1];C[i*m+j]=dx*dx+dy*dy;}
+  const a=new Array(n).fill(1/n), bm=mode==="balanced"?1:rho, b=new Array(m).fill(bm/m);
+  const [ta,tb]= mode==="balanced"?[Infinity,Infinity]: mode==="vc"?[tau,Infinity]:[tau,tau];
+  const ot=makeOT(C,n,m,a,b,eps,ta,tb);
+  PG.state={ot,it:solverIter(ot,n,mode==="balanced"&&solver!=="aati"?"sinkhorn":solver),n,m,a,eps}; PG.hist=[];PG.P=null;PG.surv=null;
+  document.getElementById("k-it").textContent="0";document.getElementById("k-err").textContent="–";document.getElementById("k-mass").textContent="–";
+  pgDraw();
+}
+function pgStep(times=1){
+  const S=PG.state; let out;
+  for(let t=0;t<times;t++){out=S.it.step(); PG.hist.push(Math.max(out.err,1e-16)); if(out.err<1e-9||!isFinite(out.err)){PG.running=false;break;}}
+  const P=S.ot.plan(out.f,S.ot.T(out.f,document.querySelector("#solver .on").dataset.v!=="sinkhorn")[1]);
+  PG.P=P; const n=S.n,m=S.m; PG.surv=new Float64Array(n); let mass=0;
+  for(let i=0;i<n;i++){let s=0;for(let j=0;j<m;j++)s+=P[i*m+j];PG.surv[i]=s/S.a[i];mass+=s;}
+  document.getElementById("k-it").textContent=out.k;document.getElementById("k-err").textContent=out.err.toExponential(1);document.getElementById("k-mass").textContent=mass.toFixed(3);
+  pgDraw();
+}
+function survColor(s,ref){const red=css("--red"),blue=css("--blue");const t=Math.max(-1,Math.min(1,Math.log(Math.max(s,1e-6)/ref)/Math.log(3)));return t<0?mix(css("--ink-2"),red,-t):mix(css("--ink-2"),blue,t);}
+function mix(h1,h2,t){const p=h=>{h=h.replace("#","");const n=parseInt(h,16);return[n>>16&255,n>>8&255,n&255]};const A=p(h1),B=p(h2);return `rgb(${A.map((v,i)=>Math.round(v+(B[i]-v)*t)).join(",")})`;}
+function pgDraw(){
+  const c=document.getElementById("pg"),{ctx,w,h}=setupCanvas(c);
+  const X=x=>w/2+x*w*0.42, Y=y=>h/2-y*h*0.42*(w/h>1.4?1.25:1);
+  ctx.clearRect(0,0,w,h);
+  const n=PG.src.length,m=PG.trt.length;
+  if(PG.P){let mx=0;for(const v of PG.P)if(v>mx)mx=v;ctx.lineWidth=1;const blue=css("--blue");
+    for(let i=0;i<n;i++)for(let j=0;j<m;j++){const v=PG.P[i*m+j]/mx;if(v<0.02)continue;ctx.strokeStyle=hexA(blue,Math.min(0.85,v*0.9));ctx.beginPath();ctx.moveTo(X(PG.src[i][0]),Y(PG.src[i][1]));ctx.lineTo(X(PG.trt[j][0]),Y(PG.trt[j][1]));ctx.stroke();}}
+  const ref=document.querySelector("#mode .on").dataset.v==="balanced"?1:+document.getElementById("rho").value;
+  for(let j=0;j<m;j++){ctx.fillStyle=css("--orange");ctx.beginPath();ctx.arc(X(PG.trt[j][0]),Y(PG.trt[j][1]),3.6,0,7);ctx.fill();}
+  for(let i=0;i<n;i++){ctx.fillStyle=PG.surv?survColor(PG.surv[i],ref):css("--ink-2");ctx.beginPath();ctx.arc(X(PG.src[i][0]),Y(PG.src[i][1]),4.2,0,7);ctx.fill();ctx.strokeStyle=css("--surface");ctx.lineWidth=1.2;ctx.stroke();}
+  drawConv(document.getElementById("pgconv"),[{h:PG.hist,c:css("--accent")}]);
+}
+function drawConv(c,series,xmax){
+  const {ctx,w,h}=setupCanvas(c); ctx.clearRect(0,0,w,h);
+  const pad={l:40,r:10,t:8,b:22}; const all=series.flatMap(s=>s.h); if(!all.length){ctx.fillStyle=css("--muted");ctx.font="12px Inter";ctx.fillText("residual vs sweeps (log scale): press Run",pad.l,h/2);return;}
+  const K=xmax||Math.max(...series.map(s=>s.h.length),2); const lo=Math.max(1e-12,Math.min(...all)), hi=Math.max(...all);
+  const ly0=Math.floor(Math.log10(lo)), ly1=Math.ceil(Math.log10(hi));
+  const X=k=>pad.l+(w-pad.l-pad.r)*(K>1?Math.log10(k)/Math.log10(K):0), Y=v=>pad.t+(h-pad.t-pad.b)*(ly1-Math.log10(Math.max(v,1e-16)))/Math.max(1,ly1-ly0);
+  ctx.strokeStyle=css("--line");ctx.fillStyle=css("--muted");ctx.font="10px JetBrains Mono";ctx.lineWidth=1;
+  for(let e=ly0;e<=ly1;e+=Math.max(1,Math.ceil((ly1-ly0)/5))){const y=Y(Math.pow(10,e));ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(w-pad.r,y);ctx.stroke();ctx.fillText("1e"+e,4,y+3);}
+  for(let p=0;Math.pow(10,p)<=K;p++){const x=X(Math.pow(10,p));ctx.fillText(String(Math.pow(10,p)),x-4,h-6);}
+  for(const s of series){ctx.strokeStyle=s.c;ctx.lineWidth=2;ctx.beginPath();s.h.forEach((v,i)=>{const x=X(i+1),y=Y(v);i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.stroke();}
+}
+function pgLoop(){if(!PG.running)return;pgStep(3);requestAnimationFrame(pgLoop);}
+function seg(id,cb){document.querySelectorAll(`#${id} button`).forEach(b=>b.onclick=()=>{document.querySelectorAll(`#${id} button`).forEach(x=>x.classList.remove("on"));b.classList.add("on");cb&&cb();});}
+seg("mode",pgBuild);seg("solver",pgBuild);
+["eps","tau","rho"].forEach(id=>document.getElementById(id).oninput=pgBuild);
+document.getElementById("scenario").onchange=e=>{scenario(e.target.value);pgBuild();};
+document.getElementById("run").onclick=()=>{if(!PG.running){if(PG.hist.length&&PG.hist[PG.hist.length-1]<1e-9)pgBuild();PG.running=true;pgLoop();}else PG.running=false;};
+document.getElementById("step").onclick=()=>{PG.running=false;pgStep(1);};
+document.getElementById("reset").onclick=()=>{PG.running=false;pgBuild();};
+(function(){const c=document.getElementById("pg");
+  const toW=e=>{const r=c.getBoundingClientRect(),w=r.width,h=r.height;const k=(w/h>1.4?1.25:1);return[((e.clientX-r.left)-w/2)/(w*0.42),-((e.clientY-r.top)-h/2)/(h*0.42*k)];};
+  c.addEventListener("pointerdown",e=>{const [x,y]=toW(e);const near=(arr)=>arr.some(p=>Math.hypot(p[0]-x,p[1]-y)<0.12);PG.drag=near(PG.trt)?{arr:"trt",x,y}:near(PG.src)?{arr:"src",x,y}:null;if(PG.drag)c.setPointerCapture(e.pointerId);});
+  c.addEventListener("pointermove",e=>{if(!PG.drag)return;const [x,y]=toW(e);const dx=x-PG.drag.x,dy=y-PG.drag.y;PG[PG.drag.arr].forEach(p=>{p[0]+=dx;p[1]+=dy;});PG.drag.x=x;PG.drag.y=y;pgBuild();});
+  c.addEventListener("pointerup",()=>{if(PG.drag){PG.drag=null;PG.running=true;pgLoop();}});
+})();
+
+// ───────────────────────── race ─────────────────────────
+const RACE={runs:null,anim:null};
+function raceRun(){
+  const ratio=Math.pow(10,+document.getElementById("ratio").value); document.getElementById("o-ratio").textContent=ratio<10?ratio.toFixed(1):ratio.toFixed(0);
+  const tol=+document.getElementById("tol").value, eps=0.05, tau=ratio*eps;
+  const r=rng(3),n=60,m=50,src=[],trt=[];for(let i=0;i<n;i++)src.push([gauss(r)*0.3,gauss(r)*0.3]);for(let j=0;j<m;j++)trt.push([0.6+gauss(r)*0.25,0.2+gauss(r)*0.2]);
+  const C=new Float64Array(n*m);for(let i=0;i<n;i++)for(let j=0;j<m;j++){const dx=src[i][0]-trt[j][0],dy=src[i][1]-trt[j][1];C[i*m+j]=dx*dx+dy*dy;}
+  const a=new Array(n).fill(1/n),b=new Array(m).fill(0.6/m);
+  const ot=makeOT(C,n,m,a,b,eps,tau,Infinity);
+  const kinds=[["sinkhorn",css("--blue")],["ti",css("--aqua")],["aati",css("--red")]];
+  RACE.runs=kinds.map(([k,c])=>({k,c,it:solverIter(ot,n,k),h:[],done:false}));
+  const lam=tau/(tau+eps); cancelAnimationFrame(RACE.anim);
+  const tb=document.getElementById("race-tb").rows;
+  function frame(){
+    let alive=false;
+    for(const R of RACE.runs){ if(R.done) continue; for(let s=0;s<(R.k==="sinkhorn"?40:1);s++){const o=R.it.step();R.h.push(Math.max(o.err,1e-16));if(o.err<tol||R.h.length>=20000||!isFinite(o.err)){R.done=true;break;}} alive=alive||!R.done;}
+    RACE.runs.forEach((R,q)=>{tb[q].cells[1].textContent=R.h.length+(R.done?"":"…");});
+    if(RACE.runs[0].h.length) tb[0].cells[2].textContent=Math.ceil(Math.log(RACE.runs[0].h[0]/tol)/Math.log(1/lam)).toLocaleString();
+    drawConv(document.getElementById("race-c"),RACE.runs.map(R=>({h:R.h,c:R.c})),Math.max(10,...RACE.runs.map(R=>R.h.length)));
+    if(alive) RACE.anim=requestAnimationFrame(frame);
+  }
+  frame();
+}
+document.getElementById("race-run").onclick=raceRun;
+document.getElementById("ratio").oninput=()=>{const r=Math.pow(10,+document.getElementById("ratio").value);document.getElementById("o-ratio").textContent=r<10?r.toFixed(1):r.toFixed(0);};
+
+// ───────────────────────── atlas explorer ─────────────────────────
+let SHOW=null;
+async function loadShowcase(){
+  try{const r=await fetch("assets/showcase.json");SHOW=await r.json();}catch(e){SHOW=null;}
+  const sel=document.getElementById("drug");
+  if(!SHOW){sel.innerHTML="<option>showcase data not found</option>";return;}
+  SHOW.drugs.forEach((d,i)=>{const o=document.createElement("option");o.value=i;o.textContent=`${d.drug}  (ρ = ${d.rho.toFixed(2)})`;sel.appendChild(o);});
+  sel.value=0; sel.onchange=drawUmap; drawUmap();
+}
+seg("layer",()=>drawUmap()); document.getElementById("arrows").onchange=()=>drawUmap();
+function drawUmap(){
+  if(!SHOW)return; const d=SHOW.drugs[+document.getElementById("drug").value];
+  const c=document.getElementById("umap"),{ctx,w,h}=setupCanvas(c); ctx.clearRect(0,0,w,h);
+  const all=SHOW.control.xy.concat(...SHOW.drugs.map(x=>x.xy)); const xs=all.map(p=>p[0]),ys=all.map(p=>p[1]);
+  const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
+  const X=x=>14+(w-28)*(x-x0)/(x1-x0), Y=y=>h-14-(h-28)*(y-y0)/(y1-y0);
+  ctx.fillStyle=hexA(css("--muted"),0.18); SHOW.drugs.forEach(o=>{if(o!==d)o.xy.forEach(p=>{ctx.beginPath();ctx.arc(X(p[0]),Y(p[1]),1.6,0,7);ctx.fill();});});
+  if(document.getElementById("arrows").checked){ctx.strokeStyle=hexA(css("--blue"),0.35);ctx.lineWidth=0.7;
+    SHOW.control.xy.forEach((p,i)=>{if(i%3)return;const q=d.xy[d.match[i]];ctx.beginPath();ctx.moveTo(X(p[0]),Y(p[1]));ctx.lineTo(X(q[0]),Y(q[1]));ctx.stroke();});}
+  ctx.fillStyle=css("--orange"); d.xy.forEach(p=>{ctx.beginPath();ctx.arc(X(p[0]),Y(p[1]),2.8,0,7);ctx.fill();});
+  const layer=document.querySelector("#layer .on").dataset.v;
+  const phaseCol={G1:css("--ink-2"),S:css("--aqua"),G2M:css("--violet")};
+  SHOW.control.xy.forEach((p,i)=>{ctx.fillStyle=layer==="surv"?survColor(d.survival[i],d.rho):phaseCol[SHOW.control.phase[i]]||css("--muted");ctx.beginPath();ctx.arc(X(p[0]),Y(p[1]),3.2,0,7);ctx.fill();});
+  document.getElementById("a-rho").textContent=d.rho.toFixed(2);document.getElementById("a-cost").textContent=d.cost_uot.toFixed(3);document.getElementById("a-it").textContent=d.iters_aa_ti;
+  // phase bar chart
+  const pc=document.getElementById("phasebar"),P=setupCanvas(pc);const g=P.ctx;g.clearRect(0,0,P.w,P.h);
+  const ph=["G1","S","G2M"],vals=ph.map(k=>d.s_by_phase[k]),mx=Math.max(...vals,d.rho)*1.15;
+  const bw=(P.w-60)/3;
+  ph.forEach((k,q)=>{const v=vals[q],x=50+q*bw+bw*0.2,bh=(P.h-30)*v/mx;g.fillStyle=phaseCol[k];g.beginPath();g.roundRect(x,P.h-18-bh,bw*0.6,bh,[4,4,0,0]);g.fill();g.fillStyle=css("--ink-2");g.font="11px Inter";g.fillText(k,x+bw*0.3-8,P.h-4);g.fillStyle=css("--ink");g.font="11px JetBrains Mono";g.fillText(v.toFixed(2),x+bw*0.3-12,P.h-22-bh);});
+  const yr=P.h-18-(P.h-30)*d.rho/mx; g.setLineDash([4,3]);g.strokeStyle=css("--muted");g.beginPath();g.moveTo(40,yr);g.lineTo(P.w-6,yr);g.stroke();g.setLineDash([]);g.fillStyle=css("--muted");g.font="10px JetBrains Mono";g.fillText("ρ",30,yr+3);
+}
+// hover tooltip on the UMAP
+(function(){const c=document.getElementById("umap"),tip=document.getElementById("tip");
+  c.addEventListener("pointermove",e=>{if(!SHOW)return;const d=SHOW.drugs[+document.getElementById("drug").value];const r=c.getBoundingClientRect();
+    const all=SHOW.control.xy.concat(...SHOW.drugs.map(x=>x.xy));const xs=all.map(p=>p[0]),ys=all.map(p=>p[1]);const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
+    const w=r.width,h=r.height,X=x=>14+(w-28)*(x-x0)/(x1-x0),Y=y=>h-14-(h-28)*(y-y0)/(y1-y0);
+    let best=-1,bd=64;SHOW.control.xy.forEach((p,i)=>{const dd=(X(p[0])-(e.clientX-r.left))**2+(Y(p[1])-(e.clientY-r.top))**2;if(dd<bd){bd=dd;best=i;}});
+    if(best<0){tip.style.opacity=0;return;} tip.textContent=`control cell #${best} · s = ${d.survival[best].toFixed(3)} · ${SHOW.control.phase[best]}`;tip.style.left=(e.clientX+12)+"px";tip.style.top=(e.clientY+12)+"px";tip.style.opacity=1;});
+  c.addEventListener("pointerleave",()=>tip.style.opacity=0);})();
+
+async function loadSummary(){try{const r=await fetch("assets/summary.json");const s=await r.json();if(s.n_problems)document.getElementById("st-problems").textContent=s.n_problems.toLocaleString();if(s.speedup)document.getElementById("st-speed").textContent=s.speedup;}catch(e){}}
+function redrawAll(){pgDraw();drawUmap();if(RACE.runs)drawConv(document.getElementById("race-c"),RACE.runs.map(R=>({h:R.h,c:R.c})));else drawConv(document.getElementById("race-c"),[]);}
+window.addEventListener("resize",()=>redrawAll());
+scenario("kill"); pgBuild(); pgParams(); drawConv(document.getElementById("race-c"),[]); loadShowcase(); loadSummary();
+setTimeout(()=>{PG.running=true;pgLoop();},400);
+</script>
+</body>
+</html>

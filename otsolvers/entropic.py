@@ -104,10 +104,12 @@ def greenkhorn(prob, eps, tol=1e-8, max_iter=200, f0=None, name="Greenkhorn", **
     err = np.abs(r - a).sum() + np.abs(c - b).sum()
     sweep, steps_per_sweep, work = 0, n + m, 0.0
     for sweep in range(1, max_iter + 1):
+        r, c = P.sum(1), P.sum(0)                 # refresh: incremental updates drift in float64
         dr, dc = rho(a, r), rho(b, c)
         for _ in range(steps_per_sweep):
             i, j = int(dr.argmax()), int(dc.argmax())
             if dr[i] >= dc[j]:
+                r[i] = P[i].sum()                 # exact sum of the line being rescaled
                 s = a[i] / r[i]
                 old = P[i].copy()
                 P[i] *= s
@@ -118,6 +120,7 @@ def greenkhorn(prob, eps, tol=1e-8, max_iter=200, f0=None, name="Greenkhorn", **
                 dc = rho(b, c)
                 work += 1.0 / n
             else:
+                c[j] = P[:, j].sum()
                 s = b[j] / c[j]
                 old = P[:, j].copy()
                 P[:, j] *= s
