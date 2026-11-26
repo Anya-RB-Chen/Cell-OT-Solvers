@@ -1,0 +1,6 @@
+data/cache/
+logs/
+__pycache__/
+*.pyc
+results/shards/
+.ipynb_checkpoints/
