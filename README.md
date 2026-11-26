@@ -1,7 +1,7 @@
 # Cell-OT Solvers
 
 **Who dies under a drug? Viability-constrained unbalanced optimal transport and fast Sinkhorn solvers for single-cell perturbation atlases.**
-COMP6704 Advanced Topics in Optimization, individual assignment (PolyU, Fall 2026). Author: Rubing CHEN (25110871R).
+
 
 [Interactive demo](https://anya-rb-chen.github.io/Cell-OT-Solvers/) · [Report (PDF)](report/CHEN_Rubing_25110871R.pdf)
 
